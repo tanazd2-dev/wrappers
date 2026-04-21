@@ -15,5 +15,6 @@ git clone https://tanazd2-dev/wrappers.git
 cd wrappers
 cp su $PREFIX/bin/ || cp su /usr/bin/ || cp su /bin/
 cp sudo $PREFIX/bin || cp sudo /usr/bin/ || cp sudo /bin/
+cp tsu $PREFIX/bin/ || cp tsu /usr/bin/ || cp tsu /bin/
 chmod +x $PREFIX/bin/* || chmod +x /usr/bin/* || chmod +x /bin/
 ```
