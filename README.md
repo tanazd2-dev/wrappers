@@ -11,7 +11,7 @@ Dependencies:
 
 Installation:
 ```bash
-git clone https://tanazd2-dev/wrappers.git
+git clone https://https://github.com/tanazd2-dev/wrappers.git
 cd wrappers
 cp su $PREFIX/bin/ || cp su /usr/bin/ || cp su /bin/
 cp sudo $PREFIX/bin || cp sudo /usr/bin/ || cp sudo /bin/
