@@ -13,7 +13,7 @@ Installation:
 ```bash
 git clone https://tanazd2-dev/wrappers.git
 cd wrappers
-mv su $PREFIX/bin/ || mv su /usr/bin/ || mv su /bin/
-mv sudo $PREFIX/bin || mv sudo /usr/bin/ || mv sudo /bin/
+cp su $PREFIX/bin/ || cp su /usr/bin/ || cp su /bin/
+cp sudo $PREFIX/bin || cp sudo /usr/bin/ || cp sudo /bin/
 chmod +x $PREFIX/bin/* || chmod +x /usr/bin/* || chmod +x /bin/
 ```

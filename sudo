@@ -1,45 +1,222 @@
 #!/usr/bin/env sh
 
+VERSION="sudo 5.3"
+
+# ----------------------------
+# base
+# ----------------------------
+if [ -n "$PREFIX" ]; then
+  BASE_PATH="$PREFIX/bin"
+else
+  BASE_PATH="/usr/bin"
+fi
+
+# ----------------------------
+# state
+# ----------------------------
+cmd=""
+user="$USER"
+preserve_env=0
+background=0
+mode=""
+
+RDIR=""
+PROMPT="[sudo] password for $USER: "
+SOPTS=""
+JOPTS=""
+TIMEOUT=""
+
+# ----------------------------
+# help (FULL, UNCOMPRESSED)
+# ----------------------------
 show_help() {
 cat <<'HELP'
-Usage: sudo [OPTION]... COMMAND
+Usage: sudo -h | -K | -k | -V
+Usage: sudo -v | sudo -l | sudo -s | sudo -i | sudo [command]
+Usage: sudo [-ABbEHkPSghprtCRTSJ] [-g group] [-h host] [-p "prompt"]
+            [-u user] [-r role] [-t type] [-C num]
+            [-R directory] [-T timeout]
+            [command [argument ...]]
 
-Execute a command.
+Run a command as another user.
 
 Options:
-  -m            preserve environment
-  -h, --help    display this help and exit
+  -h, --help            display help and exit
+  -V, --version         display version information
+  -l, --list            list capabilities
+  -v, --validate        validate session
+  -k, --reset-timestamp reset session
+  -u, --user USER       run command as USER
+  -i                    login shell
+  -s                    shell
+  -E                    preserve environment
+  -B, -b                background execution
+
+  -p "PROMPT"           set prompt text
+  -R directory          change root directory
+  -S option             enable shell option (shopt -s)
+  -J option             set shell option (set -o)
+  -T timeout            execution timeout
+
+  -g group              group selection
+  -h host               host selection
+  -r role               role selection
+  -t type               type selection
 HELP
 }
 
-preserve=0
+# ----------------------------
+# version
+# ----------------------------
+show_version() {
+cat <<'VER'
+sudo 5.3
 
-# NO ARGS → HELP (REAL BEHAVIOR LIKE MANY TOOLS)
+This is a compatibility sudo wrapper.
+VER
+}
+
+# ----------------------------
+# execution engine
+# ----------------------------
+run_cmd() {
+
+  # apply shell options
+  [ -n "$SOPTS" ] && shopt -s "$SOPTS" 2>/dev/null
+  [ -n "$JOPTS" ] && set -o "$JOPTS" 2>/dev/null
+
+  # RDIR (real context change)
+  if [ -n "$RDIR" ]; then
+    cd "$RDIR" 2>/dev/null || exit 1
+    export HOME="$RDIR/root"
+    export PATH="$BASE_PATH"
+  fi
+
+  # timeout (soft kill)
+  if [ -n "$TIMEOUT" ]; then
+    (
+      sleep "$TIMEOUT"
+      kill $$ 2>/dev/null
+    ) &
+  fi
+
+  # execution
+  if [ "$preserve_env" -eq 1 ]; then
+    if [ -n "$cmd" ]; then
+      bash -c "$cmd"
+    else
+      exec bash
+    fi
+  else
+    if [ -n "$cmd" ]; then
+      env -i HOME="$HOME" USER="$user" PATH="$BASE_PATH" bash -c "$cmd"
+    else
+      exec env -i HOME="$HOME" USER="$user" PATH="$BASE_PATH" bash
+    fi
+  fi
+}
+
+# ----------------------------
+# main
+# ----------------------------
 if [ $# -eq 0 ]; then
   show_help
   exit 0
 fi
 
-cmd=""
-
 while [ $# -gt 0 ]; do
   case "$1" in
+
     -h|--help)
       show_help
       exit 0
       ;;
 
-    -m)
-      preserve=1
+    -V|--version)
+      show_version
+      exit 0
+      ;;
+
+    -l|--list)
+cat <<'CAPS'
+CAP_SYS_ADMIN
+CAP_NET_RAW
+CAP_BLOCK_SUSPEND
+CAP_CHOWN
+CAP_SETGID
+CAP_SETUID
+CAP_DAC_READ_SEARCH
+CAP_DAC_OVERRIDE
+CAPS
+      exit 0
+      ;;
+
+    -v)
+      exit 0
+      ;;
+
+    -k)
+      exit 0
+      ;;
+
+    -u|--user)
+      shift
+      user="$1"
       shift
       ;;
 
-    --)
+    -E)
+      preserve_env=1
       shift
-      break
       ;;
 
-    -*)
+    -s)
+      mode="shell"
+      shift
+      ;;
+
+    -i)
+      mode="login"
+      shift
+      ;;
+
+    -B|-b)
+      background=1
+      shift
+      ;;
+
+    -p)
+      shift
+      PROMPT="$1"
+      shift
+      ;;
+
+    -R)
+      shift
+      RDIR="$1"
+      shift
+      ;;
+
+    -S)
+      shift
+      SOPTS="$1"
+      shift
+      ;;
+
+    -J)
+      shift
+      JOPTS="$1"
+      shift
+      ;;
+
+    -T)
+      shift
+      TIMEOUT="$1"
+      shift
+      ;;
+
+    -g|-h|-r|-t|-C)
+      shift
       shift
       ;;
 
@@ -50,9 +227,20 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# REAL -m EFFECT
-if [ "$preserve" -eq 1 ]; then
-  exec env bash -c "$cmd"
-else
-  exec env -i bash -c "$cmd"
+# ----------------------------
+# modes
+# ----------------------------
+if [ "$mode" = "shell" ]; then
+  exec bash
 fi
+
+if [ "$mode" = "login" ]; then
+  exec bash -l
+fi
+
+if [ "$background" -eq 1 ]; then
+  ( run_cmd & )
+  exit 0
+fi
+
+run_cmd
